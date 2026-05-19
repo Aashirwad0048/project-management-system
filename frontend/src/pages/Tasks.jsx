@@ -48,8 +48,8 @@ export default function Tasks() {
     try {
       const { data } = await api.put(`/tasks/${id}`, { status });
       setTasks(tasks.map(t => t._id === id ? data : t));
-      toast.success('Status updated');
-    } catch { toast.error('Failed to update'); }
+      toast.success(data.statusRequest ? `Requested ${data.statusRequest.status}` : 'Status updated');
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to update'); }
   };
 
   const filtered = filter === 'all' ? tasks : tasks.filter(t => t.status === filter);
@@ -108,6 +108,11 @@ export default function Tasks() {
                   {t.dueDate && <span>Due: {new Date(t.dueDate).toLocaleDateString()}</span>}
                   {t.assignedTo && <span>Assigned to: {t.assignedTo.name}</span>}
                 </div>
+                {t.statusRequest?.status && (
+                  <p className="text-xs text-yellow-700 mt-2">
+                    {t.statusRequest.requestedBy?.name || 'A member'} requested {t.statusRequest.status}
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <select

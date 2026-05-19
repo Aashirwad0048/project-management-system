@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Plus, Trash2, Edit2, Copy, Users } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const STATUSES = ['todo', 'in-progress', 'review', 'done'];
 const STATUS_LABELS = { todo: 'To Do', 'in-progress': 'In Progress', review: 'Review', done: 'Done' };
@@ -20,6 +21,7 @@ const PRIORITY_BADGE = {
 
 export default function ProjectDetail() {
   const { id } = useParams();
+  const { user } = useAuth();
   const [project, setProject] = useState(null);
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +50,7 @@ export default function ProjectDetail() {
   useEffect(() => { fetchProjectDetail(); }, [id]);
 
   const members = project?.members || [];
+  const isLeader = project?.owner?._id === user?._id;
 
   const openCreate = () => {
     setEditTask(null);
@@ -80,17 +83,23 @@ export default function ProjectDetail() {
     e.preventDefault();
     setSaving(true);
     try {
+      const payload = {
+        title: form.title,
+        description: form.description,
+        status: form.status,
+        priority: form.priority,
+        dueDate: form.dueDate,
+      };
+      if (isLeader) payload.assignedTo = form.assignedTo || null;
+
       if (editTask) {
-        const { data } = await api.put(`/tasks/${editTask._id}`, {
-          ...form,
-          assignedTo: form.assignedTo || null,
-        });
+        const { data } = await api.put(`/tasks/${editTask._id}`, payload);
         setTasks(tasks.map(t => t._id === editTask._id ? data : t));
-        toast.success('Task updated!');
+        toast.success(data.statusRequest ? `Requested ${STATUS_LABELS[data.statusRequest.status]}` : 'Task updated!');
       } else {
         const { data } = await api.post('/tasks', {
-          ...form,
-          assignedTo: form.assignedTo || undefined,
+          ...payload,
+          assignedTo: isLeader ? form.assignedTo || undefined : undefined,
           project: id,
         });
         setTasks([data, ...tasks]);
@@ -119,7 +128,8 @@ export default function ProjectDetail() {
     try {
       const { data } = await api.put(`/tasks/${taskId}`, { status });
       setTasks(tasks.map(t => t._id === taskId ? data : t));
-    } catch { toast.error('Failed to update status'); }
+      toast.success(data.statusRequest ? `Requested ${STATUS_LABELS[data.statusRequest.status]}` : 'Status updated');
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to update status'); }
   };
 
   if (loading) return <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600" /></div>;
@@ -146,6 +156,7 @@ export default function ProjectDetail() {
         <div className="min-w-0">
           <h1 className="text-2xl font-bold text-gray-900">{project.name}</h1>
           <p className="text-gray-500 text-sm mt-1">{project.description}</p>
+          <p className="text-xs text-gray-500 mt-2">Leader: {project.owner?.name}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 flex items-center gap-3">
@@ -176,7 +187,9 @@ export default function ProjectDetail() {
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-900">{member.name}</p>
-                <p className="text-xs text-gray-500">{member.email}</p>
+                <p className="text-xs text-gray-500">
+                  {member.email}{member._id === project.owner?._id ? ' · Leader' : ''}
+                </p>
               </div>
             </div>
           ))}
@@ -211,12 +224,17 @@ export default function ProjectDetail() {
                     {task.assignedTo && (
                       <p className="text-xs text-gray-500 mt-2">Assigned to {task.assignedTo.name}</p>
                     )}
+                    {task.statusRequest?.status && (
+                      <div className="mt-2 rounded bg-yellow-50 border border-yellow-100 px-2 py-1 text-xs text-yellow-700">
+                        {task.statusRequest.requestedBy?.name || 'A member'} requested {STATUS_LABELS[task.statusRequest.status]}
+                      </div>
+                    )}
                     {/* Quick move buttons */}
                     <div className="flex gap-1 mt-2">
                       {STATUSES.filter(s => s !== status).map(s => (
                         <button key={s} onClick={() => updateStatus(task._id, s)}
                           className="text-xs px-1.5 py-0.5 rounded bg-gray-100 hover:bg-gray-200 text-gray-500 transition-colors">
-                          → {STATUS_LABELS[s].split(' ')[0]}
+                          {(!isLeader && ['review', 'done'].includes(s)) ? 'Request ' : '→ '}{STATUS_LABELS[s].split(' ')[0]}
                         </button>
                       ))}
                     </div>
@@ -260,15 +278,21 @@ export default function ProjectDetail() {
                   </select>
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Assign To</label>
-                <select className="input" value={form.assignedTo} onChange={e => setForm({ ...form, assignedTo: e.target.value })}>
-                  <option value="">Unassigned</option>
-                  {members.map((member) => (
-                    <option key={member._id} value={member._id}>{member.name}</option>
-                  ))}
-                </select>
-              </div>
+              {isLeader ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Assign To</label>
+                  <select className="input" value={form.assignedTo} onChange={e => setForm({ ...form, assignedTo: e.target.value })}>
+                    <option value="">Unassigned</option>
+                    {members.map((member) => (
+                      <option key={member._id} value={member._id}>{member.name}</option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 text-sm text-gray-600">
+                  Only the project leader can assign or reassign tasks.
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
                 <input type="date" className="input" value={form.dueDate}

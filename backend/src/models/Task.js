@@ -17,6 +17,11 @@ const TaskSchema = new mongoose.Schema(
     project: { type: mongoose.Schema.Types.ObjectId, ref: 'Project', required: true },
     assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    statusRequest: {
+      status: { type: String, enum: ['review', 'done'] },
+      requestedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+      requestedAt: { type: Date },
+    },
     dueDate: { type: Date },
   },
   { timestamps: true }
