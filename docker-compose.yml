@@ -1,0 +1,85 @@
+version: '3.9'
+
+services:
+  # ── MongoDB ───────────────────────────────────────────────────
+  mongo:
+    image: mongo:7
+    container_name: team-pm-mongo
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: team-pm
+    volumes:
+      - mongo_data:/data/db        # Persistent storage for MongoDB
+      - mongo_config:/data/configdb
+    networks:
+      - team-pm-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # ── Backend ───────────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: team-pm-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      PORT: 5000
+      MONGO_URI: mongodb://mongo:27017/team-pm
+      JWT_SECRET: ${JWT_SECRET:-supersecretjwtkey_changeme_in_production}
+      CLIENT_URL: http://localhost:3000
+    volumes:
+      - backend_logs:/app/logs    # Persistent logs volume
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks:
+      - team-pm-network
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ── Frontend ──────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: /api
+    container_name: team-pm-frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - team-pm-network
+
+# ── Named Volumes (persistent storage) ──────────────────────────
+volumes:
+  mongo_data:
+    driver: local
+    name: team-pm-mongo-data
+  mongo_config:
+    driver: local
+    name: team-pm-mongo-config
+  backend_logs:
+    driver: local
+    name: team-pm-backend-logs
+
+# ── Network ──────────────────────────────────────────────────────
+networks:
+  team-pm-network:
+    driver: bridge
+    name: team-pm-network
