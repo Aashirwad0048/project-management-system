@@ -25,19 +25,19 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.18),_transparent_35%),linear-gradient(135deg,_#0f172a,_#111827_40%,_#020617)] flex items-center justify-center p-4">
+      <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-3xl shadow-2xl shadow-slate-950/30 p-8 w-full max-w-md border border-white/40 dark:border-slate-800">
         <div className="text-center mb-8">
-          <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+          <div className="w-14 h-14 bg-cyan-500 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-cyan-500/20">
             <LogIn size={28} className="text-white" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900">Sign In</h2>
-          <p className="text-gray-500 text-sm mt-1">Welcome back to Team PM</p>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Sign In</h2>
+          <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Welcome back to Team PM</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Email</label>
             <input
               type="email"
               className="input"
@@ -63,9 +63,9 @@ export default function Login() {
           </button>
         </form>
 
-        <p className="text-center text-sm text-gray-500 mt-6">
+        <p className="text-center text-sm text-slate-500 dark:text-slate-400 mt-6">
           Don't have an account?{' '}
-          <Link to="/register" className="text-blue-600 font-medium hover:underline">
+          <Link to="/register" className="text-cyan-600 dark:text-cyan-400 font-medium hover:underline">
             Register
           </Link>
         </p>

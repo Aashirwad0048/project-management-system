@@ -129,8 +129,9 @@ exports.deleteTask = async (req, res) => {
     if (!isProjectMember(project, req.user._id)) {
       return res.status(403).json({ message: 'Not authorized for this task' });
     }
-    if (task.createdBy.toString() !== req.user._id.toString() && project.owner.toString() !== req.user._id.toString())
-      return res.status(403).json({ message: 'Not authorized' });
+    if (project.owner.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Only the project leader can delete tasks' });
+    }
 
     await task.deleteOne();
     res.json({ message: 'Task deleted' });
