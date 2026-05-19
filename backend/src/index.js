@@ -17,11 +17,19 @@ if (missingEnv.length > 0) {
 }
 
 const normalizeOrigin = (origin) => origin?.replace(/\/$/, '');
-const clientOrigin = normalizeOrigin(process.env.CLIENT_URL || 'http://localhost:5173');
+const allowedOrigins = [
+  'http://localhost:5173',
+  normalizeOrigin(process.env.CLIENT_URL),
+].filter(Boolean);
 
 // Middleware
 app.use(cors({
-  origin: clientOrigin,
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(normalizeOrigin(origin))) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'));
+  },
   credentials: true,
 }));
 app.use(express.json());
