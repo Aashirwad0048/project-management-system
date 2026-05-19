@@ -7,6 +7,7 @@ const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/projects', label: 'Projects', icon: FolderKanban },
   { to: '/tasks', label: 'My Tasks', icon: CheckSquare },
+  { to: '/profile', label: 'Profile', icon: User },
 ];
 
 export default function Layout() {
@@ -24,7 +25,7 @@ export default function Layout() {
       {/* Sidebar */}
       <aside className="w-64 bg-gray-900 text-white flex flex-col">
         <div className="p-6 border-b border-gray-700">
-          <h1 className="text-xl font-bold text-blue-400">⚡ Team PM</h1>
+          <h1 className="text-xl font-bold text-blue-400">Team PM</h1>
           <p className="text-gray-400 text-xs mt-1">Project Management</p>
         </div>
 

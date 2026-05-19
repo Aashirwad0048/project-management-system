@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Plus, Trash2, Edit2, X, Check } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Edit2, Copy, Users } from 'lucide-react';
 
 const STATUSES = ['todo', 'in-progress', 'review', 'done'];
 const STATUS_LABELS = { todo: 'To Do', 'in-progress': 'In Progress', review: 'Review', done: 'Done' };
@@ -25,7 +25,14 @@ export default function ProjectDetail() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editTask, setEditTask] = useState(null);
-  const [form, setForm] = useState({ title: '', description: '', status: 'todo', priority: 'medium', dueDate: '' });
+  const [form, setForm] = useState({
+    title: '',
+    description: '',
+    status: 'todo',
+    priority: 'medium',
+    assignedTo: '',
+    dueDate: '',
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -40,19 +47,52 @@ export default function ProjectDetail() {
 
   useEffect(() => { fetchProjectDetail(); }, [id]);
 
-  const openCreate = () => { setEditTask(null); setForm({ title: '', description: '', status: 'todo', priority: 'medium', dueDate: '' }); setShowModal(true); };
-  const openEdit = (task) => { setEditTask(task); setForm({ title: task.title, description: task.description || '', status: task.status, priority: task.priority, dueDate: task.dueDate?.slice(0,10) || '' }); setShowModal(true); };
+  const members = project?.members || [];
+
+  const openCreate = () => {
+    setEditTask(null);
+    setForm({ title: '', description: '', status: 'todo', priority: 'medium', assignedTo: '', dueDate: '' });
+    setShowModal(true);
+  };
+  const openEdit = (task) => {
+    setEditTask(task);
+    setForm({
+      title: task.title,
+      description: task.description || '',
+      status: task.status,
+      priority: task.priority,
+      assignedTo: task.assignedTo?._id || '',
+      dueDate: task.dueDate?.slice(0, 10) || '',
+    });
+    setShowModal(true);
+  };
+
+  const copyInvite = async () => {
+    try {
+      await navigator.clipboard.writeText(project.inviteCode);
+      toast.success('Invite code copied');
+    } catch {
+      toast.error('Could not copy invite code');
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
       if (editTask) {
-        const { data } = await api.put(`/tasks/${editTask._id}`, form);
+        const { data } = await api.put(`/tasks/${editTask._id}`, {
+          ...form,
+          assignedTo: form.assignedTo || null,
+        });
         setTasks(tasks.map(t => t._id === editTask._id ? data : t));
         toast.success('Task updated!');
       } else {
-        const { data } = await api.post('/tasks', { ...form, project: id });
+        const { data } = await api.post('/tasks', {
+          ...form,
+          assignedTo: form.assignedTo || undefined,
+          project: id,
+        });
         setTasks([data, ...tasks]);
         toast.success('Task created!');
       }
@@ -102,14 +142,45 @@ export default function ProjectDetail() {
         <ArrowLeft size={16} /> Back to Projects
       </Link>
 
-      <div className="flex items-start justify-between mb-8">
-        <div>
+      <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-5 mb-8">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-gray-900">{project.name}</h1>
           <p className="text-gray-500 text-sm mt-1">{project.description}</p>
         </div>
-        <button onClick={openCreate} className="btn-primary flex items-center gap-2">
-          <Plus size={16} /> Add Task
-        </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="bg-white border border-gray-200 rounded-lg px-3 py-2 flex items-center gap-3">
+            <div>
+              <p className="text-xs text-gray-500">Invite code</p>
+              <p className="text-sm font-semibold tracking-wider text-gray-900">{project.inviteCode}</p>
+            </div>
+            <button onClick={copyInvite} className="p-2 text-gray-500 hover:text-blue-600 rounded hover:bg-blue-50">
+              <Copy size={16} />
+            </button>
+          </div>
+          <button onClick={openCreate} className="btn-primary flex items-center gap-2">
+            <Plus size={16} /> Add Task
+          </button>
+        </div>
+      </div>
+
+      <div className="card mb-6">
+        <div className="flex items-center gap-2 mb-4">
+          <Users size={18} className="text-blue-600" />
+          <h2 className="font-semibold text-gray-900">Project Team</h2>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          {members.map((member) => (
+            <div key={member._id} className="flex items-center gap-2 rounded-lg border border-gray-100 px-3 py-2">
+              <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-bold">
+                {member.name?.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()}
+              </div>
+              <div>
+                <p className="text-sm font-medium text-gray-900">{member.name}</p>
+                <p className="text-xs text-gray-500">{member.email}</p>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* Kanban Board */}
@@ -137,6 +208,9 @@ export default function ProjectDetail() {
                       <span className={`badge text-xs ${PRIORITY_BADGE[task.priority]}`}>{task.priority}</span>
                       {task.dueDate && <span className="text-xs text-gray-400">{new Date(task.dueDate).toLocaleDateString()}</span>}
                     </div>
+                    {task.assignedTo && (
+                      <p className="text-xs text-gray-500 mt-2">Assigned to {task.assignedTo.name}</p>
+                    )}
                     {/* Quick move buttons */}
                     <div className="flex gap-1 mt-2">
                       {STATUSES.filter(s => s !== status).map(s => (
@@ -185,6 +259,15 @@ export default function ProjectDetail() {
                     <option value="high">High</option>
                   </select>
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Assign To</label>
+                <select className="input" value={form.assignedTo} onChange={e => setForm({ ...form, assignedTo: e.target.value })}>
+                  <option value="">Unassigned</option>
+                  {members.map((member) => (
+                    <option key={member._id} value={member._id}>{member.name}</option>
+                  ))}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>

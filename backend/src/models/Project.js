@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const crypto = require('crypto');
 
 const ProjectSchema = new mongoose.Schema(
   {
@@ -11,9 +12,20 @@ const ProjectSchema = new mongoose.Schema(
     },
     owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     members: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
+    inviteCode: { type: String, unique: true, index: true },
     deadline: { type: Date },
   },
   { timestamps: true }
 );
+
+ProjectSchema.pre('validate', function (next) {
+  if (!this.inviteCode) {
+    this.inviteCode = crypto.randomBytes(4).toString('hex').toUpperCase();
+  }
+  if (this.owner && !this.members.some((member) => member.toString() === this.owner.toString())) {
+    this.members.unshift(this.owner);
+  }
+  next();
+});
 
 module.exports = mongoose.model('Project', ProjectSchema);

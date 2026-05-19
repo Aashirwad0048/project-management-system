@@ -1,12 +1,24 @@
 const Task = require('../models/Task');
 const Project = require('../models/Project');
 
+const isProjectMember = (project, userId) =>
+  project.owner.toString() === userId.toString()
+  || project.members.some((member) => member.toString() === userId.toString());
+
 // GET /api/tasks?project=<id>
 exports.getTasks = async (req, res) => {
   try {
     const filter = {};
-    if (req.query.project) filter.project = req.query.project;
-    else filter.$or = [{ assignedTo: req.user._id }, { createdBy: req.user._id }];
+    if (req.query.project) {
+      const project = await Project.findById(req.query.project);
+      if (!project) return res.status(404).json({ message: 'Project not found' });
+      if (!isProjectMember(project, req.user._id)) {
+        return res.status(403).json({ message: 'Not authorized for this project' });
+      }
+      filter.project = req.query.project;
+    } else {
+      filter.$or = [{ assignedTo: req.user._id }, { createdBy: req.user._id }];
+    }
 
     const tasks = await Task.find(filter)
       .populate('assignedTo', 'name email')
@@ -24,6 +36,12 @@ exports.createTask = async (req, res) => {
   try {
     const project = await Project.findById(req.body.project);
     if (!project) return res.status(404).json({ message: 'Project not found' });
+    if (!isProjectMember(project, req.user._id)) {
+      return res.status(403).json({ message: 'Not authorized for this project' });
+    }
+    if (req.body.assignedTo && !project.members.some((member) => member.toString() === req.body.assignedTo)) {
+      return res.status(400).json({ message: 'Assigned user must be a project member' });
+    }
 
     const task = await Task.create({ ...req.body, createdBy: req.user._id });
     await task.populate(['assignedTo', 'createdBy', 'project']);
@@ -41,6 +59,10 @@ exports.getTask = async (req, res) => {
       .populate('createdBy', 'name email')
       .populate('project', 'name');
     if (!task) return res.status(404).json({ message: 'Task not found' });
+    const project = await Project.findById(task.project._id);
+    if (!isProjectMember(project, req.user._id)) {
+      return res.status(403).json({ message: 'Not authorized for this task' });
+    }
     res.json(task);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -52,6 +74,13 @@ exports.updateTask = async (req, res) => {
   try {
     const task = await Task.findById(req.params.id);
     if (!task) return res.status(404).json({ message: 'Task not found' });
+    const project = await Project.findById(task.project);
+    if (!isProjectMember(project, req.user._id)) {
+      return res.status(403).json({ message: 'Not authorized for this task' });
+    }
+    if (req.body.assignedTo && !project.members.some((member) => member.toString() === req.body.assignedTo)) {
+      return res.status(400).json({ message: 'Assigned user must be a project member' });
+    }
 
     const updated = await Task.findByIdAndUpdate(req.params.id, req.body, {
       new: true, runValidators: true,
@@ -67,7 +96,11 @@ exports.deleteTask = async (req, res) => {
   try {
     const task = await Task.findById(req.params.id);
     if (!task) return res.status(404).json({ message: 'Task not found' });
-    if (task.createdBy.toString() !== req.user._id.toString())
+    const project = await Project.findById(task.project);
+    if (!isProjectMember(project, req.user._id)) {
+      return res.status(403).json({ message: 'Not authorized for this task' });
+    }
+    if (task.createdBy.toString() !== req.user._id.toString() && project.owner.toString() !== req.user._id.toString())
       return res.status(403).json({ message: 'Not authorized' });
 
     await task.deleteOne();

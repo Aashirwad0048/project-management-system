@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
-import { Plus, FolderKanban, Trash2, ExternalLink } from 'lucide-react';
+import { Plus, FolderKanban, Trash2, ExternalLink, Users } from 'lucide-react';
 
 const STATUS_COLORS = {
   planning: 'bg-purple-100 text-purple-700',
@@ -15,7 +15,9 @@ export default function Projects() {
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [showJoinModal, setShowJoinModal] = useState(false);
   const [form, setForm] = useState({ name: '', description: '', status: 'planning', deadline: '' });
+  const [joinCode, setJoinCode] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -57,6 +59,22 @@ export default function Projects() {
     }
   };
 
+  const handleJoin = async (e) => {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const { data } = await api.post('/projects/join', { inviteCode: joinCode });
+      setProjects((current) => [data, ...current.filter((p) => p._id !== data._id)]);
+      setJoinCode('');
+      setShowJoinModal(false);
+      toast.success('Joined project');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to join project');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="p-8">
       <div className="flex items-center justify-between mb-8">
@@ -64,9 +82,14 @@ export default function Projects() {
           <h1 className="text-2xl font-bold text-gray-900">Projects</h1>
           <p className="text-gray-500 text-sm mt-1">{projects.length} project{projects.length !== 1 ? 's' : ''}</p>
         </div>
-        <button onClick={() => setShowModal(true)} className="btn-primary flex items-center gap-2">
-          <Plus size={16} /> New Project
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => setShowJoinModal(true)} className="btn-secondary flex items-center gap-2">
+            <Users size={16} /> Join
+          </button>
+          <button onClick={() => setShowModal(true)} className="btn-primary flex items-center gap-2">
+            <Plus size={16} /> New Project
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -103,7 +126,7 @@ export default function Projects() {
               <h3 className="font-semibold text-gray-900 mb-1">{p.name}</h3>
               <p className="text-sm text-gray-500 mb-4 line-clamp-2">{p.description || 'No description'}</p>
               <div className="flex items-center justify-between text-xs text-gray-400">
-                <span>Owner: {p.owner?.name}</span>
+                <span>{p.members?.length || 1} member{(p.members?.length || 1) !== 1 ? 's' : ''}</span>
                 {p.deadline && <span>Due: {new Date(p.deadline).toLocaleDateString()}</span>}
               </div>
             </div>
@@ -147,6 +170,27 @@ export default function Projects() {
                 <button type="button" onClick={() => setShowModal(false)} className="btn-secondary flex-1">Cancel</button>
                 <button type="submit" disabled={saving} className="btn-primary flex-1">
                   {saving ? 'Creating…' : 'Create'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showJoinModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md">
+            <h2 className="text-lg font-bold mb-5">Join Project</h2>
+            <form onSubmit={handleJoin} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Invite Code</label>
+                <input className="input uppercase tracking-wider" placeholder="8 character code" value={joinCode}
+                  onChange={e => setJoinCode(e.target.value.toUpperCase())} required />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setShowJoinModal(false)} className="btn-secondary flex-1">Cancel</button>
+                <button type="submit" disabled={saving} className="btn-primary flex-1">
+                  {saving ? 'Joining...' : 'Join'}
                 </button>
               </div>
             </form>
