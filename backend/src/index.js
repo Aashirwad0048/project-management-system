@@ -16,9 +16,12 @@ if (missingEnv.length > 0) {
   process.exit(1);
 }
 
+const normalizeOrigin = (origin) => origin?.replace(/\/$/, '');
+const clientOrigin = normalizeOrigin(process.env.CLIENT_URL || 'http://localhost:5173');
+
 // Middleware
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: clientOrigin,
   credentials: true,
 }));
 app.use(express.json());
