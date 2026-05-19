@@ -111,7 +111,6 @@ jobs:
         run: npm install -g vercel
 
       - name: Deploy to Vercel
-        working-directory: frontend
         run: |
           rm -rf .vercel ../.vercel
           mkdir -p .vercel
